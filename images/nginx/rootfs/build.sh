@@ -125,6 +125,9 @@ export LUA_RESTY_GLOBAL_THROTTLE_VERSION=0.2.0
 # Check for recent changes:  https://github.com/microsoft/mimalloc/compare/v1.7.6...master
 export MIMALOC_VERSION=1.7.6
 
+# https://github.com/Kong/ngx_wasm_module
+export WASM_VERSION=0.2.0
+
 export BUILD_PATH=/tmp/build
 
 ARCH=$(uname -m)
@@ -314,6 +317,9 @@ get_src 0fb790e394510e73fdba1492e576aaec0b8ee9ef08e3e821ce253a07719cf7ea \
 
 get_src d74f86ada2329016068bc5a243268f1f555edd620b6a7d6ce89295e7d6cf18da \
         "https://github.com/microsoft/mimalloc/archive/refs/tags/v${MIMALOC_VERSION}.tar.gz"
+
+get_src b4e764fec38735c93e54c7dff84990d5a5fb6ad86c70867fd96341d89cadaf81 \
+        "https://github.com/Kong/ngx_wasm_module/releases/download/prerelease-${WASM_VERSION}/ngx_wasm_module-prerelease-${WASM_VERSION}.tar.gz"
 
 # improve compilation times
 CORES=$(($(grep -c ^processor /proc/cpuinfo) - 1))
@@ -605,6 +611,8 @@ CC_OPT="-g -O2 -fPIE -fstack-protector-strong \
   -DTCP_FASTOPEN=23 \
   -fPIC \
   -I$HUNTER_INSTALL_DIR/include \
+  -I$BUILD_PATH/lua-nginx-module-$LUA_NGX_VERSION/src \
+  -I$BUILD_PATH/stream-lua-nginx-module-$LUA_STREAM_NGX_VERSION/src \
   -Wno-cast-function-type"
 
 LD_OPT="-fPIE -fPIC -pie -Wl,-z,relro -Wl,-z,now -L$HUNTER_INSTALL_DIR/lib"
@@ -617,6 +625,10 @@ if [[ ${ARCH} == "x86_64" ]]; then
   CC_OPT+=' -m64 -mtune=generic'
 fi
 
+export NGX_WASM_RUNTIME_INC=/wasmtime-c-api/include
+export NGX_WASM_RUNTIME_LIB=/wasmtime-c-api/lib
+cp /wasmtime-c-api/lib/libwasmtime.so /usr/local/lib/libwasmtime.so
+
 WITH_MODULES=" \
   --add-module=$BUILD_PATH/ngx_devel_kit-$NDK_VERSION \
   --add-module=$BUILD_PATH/set-misc-nginx-module-$SETMISC_VERSION \
@@ -625,6 +637,7 @@ WITH_MODULES=" \
   --add-module=$BUILD_PATH/lua-nginx-module-$LUA_NGX_VERSION \
   --add-module=$BUILD_PATH/stream-lua-nginx-module-$LUA_STREAM_NGX_VERSION \
   --add-module=$BUILD_PATH/lua-upstream-nginx-module-$LUA_UPSTREAM_VERSION \
+  --add-module=$BUILD_PATH/ngx_wasm_module-$WASM_VERSION \
   --add-dynamic-module=$BUILD_PATH/nginx-http-auth-digest-$NGINX_DIGEST_AUTH \
   --add-dynamic-module=$BUILD_PATH/nginx-opentracing-$NGINX_OPENTRACING_VERSION/opentracing \
   --add-dynamic-module=$BUILD_PATH/ModSecurity-nginx-$MODSECURITY_VERSION \

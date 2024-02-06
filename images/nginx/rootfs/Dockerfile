@@ -11,9 +11,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+FROM rust:1.75-alpine3.19 as rust
+
+ARG VER=14.0.4
+RUN apk add curl musl-dev && curl -O -L https://github.com/bytecodealliance/wasmtime/releases/download/v${VER}/wasmtime-v${VER}-src.tar.gz \
+  && tar -xvf wasmtime-v${VER}-src.tar.gz
+
+RUN cd wasmtime-v${VER}-src && RUSTFLAGS="-C target-feature=-crt-static" \
+  cargo build --release --manifest-path crates/c-api/Cargo.toml
+
+RUN mkdir -p /wasmtime-c-api/lib && mkdir -p /wasmtime-c-api/include \
+  && cp wasmtime-v${VER}-src/target/release/libwasmtime.* /wasmtime-c-api/lib \
+  && cp -r wasmtime-v${VER}-src/crates/c-api/include /wasmtime-c-api \
+  && cp -r wasmtime-v${VER}-src/crates/c-api/wasm-c-api/include /wasmtime-c-api
+
 FROM alpine:3.19.0 as builder
 
 COPY . /
+COPY --from=rust /wasmtime-c-api /wasmtime-c-api
 
 RUN apk update \
   && apk upgrade \
